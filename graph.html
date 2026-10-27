@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LuciCalc Graphing</title>
+<style>
+:root{color-scheme:dark;--bg:#10131a;--panel:#191e29;--panel2:#222a38;--line:#394354;--text:#edf2fa;--muted:#aab5c6;--accent:#80b7ff;--red:#ff8d9a;--green:#9de6bc;--yellow:#ffd479}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1250px;margin:auto;padding:16px}h1{font-size:1.55rem;margin:0 0 3px}.sub{color:var(--muted);margin:0 0 14px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:12px;min-width:0}
+.plot-wrap{position:relative;width:100%;aspect-ratio:1.35;background:#0b0f15;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.graph-toolbar{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;align-items:center}
+button,input,select{font:inherit}button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;min-height:38px}button:hover{border-color:var(--accent)}button.primary{background:var(--accent);color:#071321;border-color:var(--accent);font-weight:700}button:disabled{opacity:.5;cursor:not-allowed}
+label{display:block;color:var(--muted);font-size:.86rem;margin-bottom:5px}input,select{width:100%;background:#0c1017;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;min-width:0}
+#equations{display:grid;gap:8px}.eqrow{display:grid;grid-template-columns:24px minmax(0,1fr) 36px;gap:7px;align-items:center}.swatch{width:12px;height:12px;border-radius:3px;justify-self:center}.eqrow input{font: .98rem ui-monospace,SFMono-Regular,Consolas,monospace}.eqrow button{padding:4px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.controls .full{grid-column:1/-1}
+.status{font-size:.88rem;color:var(--muted);margin-top:8px;overflow-wrap:anywhere}.coord{font: .88rem ui-monospace,monospace;color:var(--green);margin-top:8px;min-height:1.3em}
+.examples{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.examples button{font-size:.84rem}
+.help{font-size:.88rem;color:var(--muted)}.section-title{font-size:1rem;margin:0 0 9px}
+.readout{padding:9px;background:#0c1017;border:1px solid var(--line);border-radius:8px;margin-top:8px}.readout strong{color:var(--green)}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.plot-wrap{aspect-ratio:1.05}main{padding:10px}}
+</style>
+</head>
+<body>
+<main>
+<h1>LuciCalc Graphing</h1>
+<p class="sub">Plot functions, explore the coordinate plane, and zoom or pan around your equations.</p>
+<div class="layout">
+<section class="panel">
+<div class="plot-wrap"><canvas id="plot" aria-label="Interactive two-dimensional function graph"></canvas></div>
+<div class="graph-toolbar">
+<button id="zoomout">− Zoom</button><button id="zoomin">+ Zoom</button><button id="reset">Reset view</button><button id="fit">Fit view</button>
+<button id="gridtoggle">Hide grid</button><button id="tracetoggle">Trace: off</button>
+</div>
+<div id="coord" class="coord">Move or tap on the graph to inspect coordinates.</div>
+<div id="graphstatus" class="status" aria-live="polite">Ready.</div>
+</section>
+<aside class="panel">
+<h2 class="section-title">Expressions</h2>
+<div id="equations"></div>
+<div class="graph-toolbar"><button id="add" class="primary">+ Add expression</button><button id="clear">Clear all</button></div>
+<div class="examples">
+<button data-example="sin(x)">sin(x)</button><button data-example="x^2">x²</button><button data-example="cos(x)">cos(x)</button><button data-example="1/x">1/x</button><button data-example="sqrt(x)">sqrt(x)</button><button data-example="abs(x)">abs(x)</button><button data-example="x^3 - 3*x">x³ − 3x</button>
+</div>
+<div class="controls">
+<div><label for="xmin">x minimum</label><input id="xmin" type="number" value="-10" step="any"></div>
+<div><label for="xmax">x maximum</label><input id="xmax" type="number" value="10" step="any"></div>
+<div><label for="ymin">y minimum</label><input id="ymin" type="number" value="-10" step="any"></div>
+<div><label for="ymax">y maximum</label><input id="ymax" type="number" value="10" step="any"></div>
+<div class="full"><button id="apply" class="primary" style="width:100%">Apply bounds</button></div>
+</div>
+<div class="readout"><div class="help">Graphing mode</div><strong>y = f(x)</strong><div class="help">Trigonometry uses radians. Use x as the independent variable.</div></div>
+<p class="help">Supported: <code>+ − * / ^ %</code>, parentheses, implicit multiplication (<code>2x</code>, <code>3(x+1)</code>), <code>sin cos tan asin acos atan sqrt abs ln log exp floor ceil round min max</code>, constants <code>pi</code> and <code>e</code>.</p>
+<p class="help">Drag to pan. Scroll or use the zoom buttons to zoom. Click an expression to edit it. The calculator plots real-valued functions; unsupported or invalid expressions will show an error.</p>
+</aside>
+</div>
+</main>
+<script>
+(() => {
+"use strict";
+const canvas=document.getElementById("plot"),ctx=canvas.getContext("2d");
+const eqs=document.getElementById("equations"),status=document.getElementById("graphstatus"),coord=document.getElementById("coord");
+const colors=["#80b7ff","#ff8d9a","#9de6bc","#ffd479","#c7a5ff","#ffad75","#76e1df","#f29ed5"];
+let funcs=[], nextId=1, bounds={xmin:-10,xmax:10,ymin:-10,ymax:10}, grid=true, trace=false, pointer=null, traceX=null, dpr=1;
+const defaultFns=["sin(x)","x^2"];
+function tokenize(s){
+ const t=[];let i=0;
+ while(i<s.length){if(/\s/.test(s[i])){i++;continue}let r=s.slice(i),m;
+ if((m=r.match(/^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i))){t.push({t:"n",v:+m[0]});i+=m[0].length;continue}
+ if((m=r.match(/^[A-Za-z_][A-Za-z_0-9]*/))){t.push({t:"id",v:m[0].toLowerCase()});i+=m[0].length;continue}
+ if("+-*/^%(),".includes(s[i])){t.push({t:s[i],v:s[i]});i++;continue}
+ throw Error("Unexpected character '"+s[i]+"'");
+ }
+ const out=[];
+ for(let j=0;j<t.length;j++){const a=t[j],b=t[j+1];out.push(a);if(!b)continue;
+ const end=a.t==="n"||a.t==="id"||a.t===")",start=b.t==="n"||b.t==="id"||b.t==="(";
+ const fn=a.t==="id"&&b.t==="("&&["sin","cos","tan","asin","acos","atan","sqrt","abs","ln","log","exp","floor","ceil","round","min","max"].includes(a.v);
+ if(end&&start&&!fn)out.push({t:"*",v:"*"});
+ }return out;
+}
+function compile(source){
+ const ts=tokenize(source);let p=0;
+ if(!ts.length)throw Error("Empty expression");
+ const peek=()=>ts[p],take=t=>peek()&&peek().t===t?ts[p++]:null,need=t=>{if(!take(t))throw Error("Expected '"+t+"'")};
+ const fns={sin:Math.sin,cos:Math.cos,tan:Math.tan,asin:Math.asin,acos:Math.acos,atan:Math.atan,sqrt:Math.sqrt,abs:Math.abs,ln:Math.log,log:Math.log10,exp:Math.exp,floor:Math.floor,ceil:Math.ceil,round:Math.round,min:Math.min,max:Math.max};
+ function primary(){
+  let a;
+  if(take("+"))return unary();if(take("-"))return -unary();
+  if((a=take("n")))return a.v;
+  if((a=take("id"))){
+   if(a.v==="pi")return Math.PI;if(a.v==="e")return Math.E;
+   if(Object.hasOwn(fns,a.v)){need("(");const args=[];if(!take(")")){args.push(expression());while(take(","))args.push(expression());need(")")}
+    if((a.v==="min"||a.v==="max")?args.length<1:args.length!==1)throw Error(a.v+" expects "+((a.v==="min"||a.v==="max")?"one or more":"one")+" argument(s)");
+    return fns[a.v](...args)}
+   if(a.v==="x")return X;
+   throw Error("Unknown symbol: "+a.v);
+  }
+  if(take("(")){const v=expression();need(")");return v}
+  throw Error("Expected a number, x, function, or '('");
+ }
+ let X=0;
+ function unary(){return power()}
+ function power(){let v=postfix();if(take("^"))v=Math.pow(v,unary());return v}
+ function postfix(){let v=primary();return v}
+ function term(){let v=power();while(peek()&&["*","/","%"].includes(peek().t)){const op=ts[p++].t,r=power();if((op==="/"||op==="%")&&r===0)throw Error("Division by zero");v=op==="*"?v*r:op==="/"?v/r:v%r}return v}
+ function expression(){let v=term();while(peek()&&(peek().t==="+"||peek().t==="-")){const op=ts[p++].t,r=term();v=op==="+"?v+r:v-r}return v}
+ // Build a reusable evaluator by binding x to the parser's variable.
+ function parse(){
+  const val=expression();if(p<ts.length)throw Error("Unexpected token '"+ts[p].v+"'");return val;
+ }
+ parse(); // Syntax-check once. Reparse at each x because this compact parser evaluates while parsing.
+ return x=>{p=0;X=x;const value=parse();return value};
+}
+function makeEvaluator(source){
+ // A fresh parser evaluation is cheap for a graphing calculator; validate with a sample first.
+ const fn=compile(source);fn(0);return fn;
+}
+function resize(){
+ const r=canvas.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);
+ canvas.width=Math.max(1,Math.round(r.width*dpr));canvas.height=Math.max(1,Math.round(r.height*dpr));
+ ctx.setTransform(dpr,0,0,dpr,0,0);draw();
+}
+function W(){return canvas.getBoundingClientRect().width}function H(){return canvas.getBoundingClientRect().height}
+function sx(x){return (x-bounds.xmin)/(bounds.xmax-bounds.xmin)*W()}
+function sy(y){return H()-(y-bounds.ymin)/(bounds.ymax-bounds.ymin)*H()}
+function wx(px){return bounds.xmin+px/W()*(bounds.xmax-bounds.xmin)}
+function wy(py){return bounds.ymax-py/H()*(bounds.ymax-bounds.ymin)}
+function tickStep(span){const rough=span/9,p=Math.pow(10,Math.floor(Math.log10(rough))),n=rough/p;return (n<1.5?1:n<3.5?2:n<7.5?5:10)*p}
+function draw(){
+ const w=W(),h=H();if(!w||!h)return;ctx.clearRect(0,0,w,h);ctx.fillStyle="#0b0f15";ctx.fillRect(0,0,w,h);
+ if(grid){
+  const dx=tickStep(bounds.xmax-bounds.xmin),dy=tickStep(bounds.ymax-bounds.ymin);
+  ctx.lineWidth=1;ctx.strokeStyle="#222b38";ctx.fillStyle="#8f9caf";ctx.font="11px system-ui";
+  ctx.beginPath();
+  for(let x=Math.ceil(bounds.xmin/dx)*dx;x<=bounds.xmax;x+=dx){const px=sx(x);ctx.moveTo(px,0);ctx.lineTo(px,h)}
+  for(let y=Math.ceil(bounds.ymin/dy)*dy;y<=bounds.ymax;y+=dy){const py=sy(y);ctx.moveTo(0,py);ctx.lineTo(w,py)}
+  ctx.stroke();
+  for(let x=Math.ceil(bounds.xmin/dx)*dx;x<=bounds.xmax;x+=dx){if(Math.abs(x)<dx*0.001)continue;const px=sx(x);ctx.fillText(fmt(x),Math.max(2,Math.min(w-30,px+3)),Math.max(12,Math.min(h-3,(bounds.ymin<=0&&bounds.ymax>=0?sy(0):h-3)+13)))}
+  for(let y=Math.ceil(bounds.ymin/dy)*dy;y<=bounds.ymax;y+=dy){if(Math.abs(y)<dy*0.001)continue;const py=sy(y);ctx.fillText(fmt(y),Math.max(2,(bounds.xmin<=0&&bounds.xmax>=0?sx(0):2)+4),Math.max(12,Math.min(h-2,py-3)))}
+ }
+ ctx.strokeStyle="#d4deeb";ctx.lineWidth=1.4;ctx.beginPath();
+ if(bounds.xmin<=0&&bounds.xmax>=0){ctx.moveTo(sx(0),0);ctx.lineTo(sx(0),h)}
+ if(bounds.ymin<=0&&bounds.ymax>=0){ctx.moveTo(0,sy(0));ctx.lineTo(w,sy(0))}ctx.stroke();
+ funcs.forEach(f=>{
+  if(!f.visible||!f.fn)return;ctx.strokeStyle=f.color;ctx.lineWidth=2;ctx.beginPath();let started=false,lastY=null;
+  const steps=Math.max(300,Math.floor(w*1.5));
+  for(let i=0;i<=steps;i++){
+   const x=bounds.xmin+(i/steps)*(bounds.xmax-bounds.xmin);let y;
+   try{y=f.fn(x)}catch{y=NaN}
+   if(!Number.isFinite(y)||Math.abs(y)>1e8){started=false;lastY=null;continue}
+   const py=sy(y),px=sx(x);
+   if(!Number.isFinite(py)||py < -h*8||py>h*9){started=false;lastY=py;continue}
+   if(lastY!==null&&Math.abs(py-lastY)>h*.7){started=false}
+   if(!started){ctx.moveTo(px,py);started=true}else ctx.lineTo(px,py);
+   lastY=py;
+  }ctx.stroke();
+ });
+ if(trace&&traceX!==null){
+  const px=sx(traceX);ctx.strokeStyle="#aab5c6";ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,h);ctx.stroke();ctx.setLineDash([]);
+  funcs.forEach(f=>{if(!f.fn||!f.visible)return;let y;try{y=f.fn(traceX)}catch{return}if(Number.isFinite(y)&&y>=bounds.ymin&&y<=bounds.ymax){ctx.fillStyle=f.color;ctx.beginPath();ctx.arc(px,sy(y),4,0,Math.PI*2);ctx.fill()}});
+ }
+}
+function fmt(n){return Number(n.toPrecision(6)).toString()}
+function renderRows(){
+ eqs.replaceChildren();
+ funcs.forEach(f=>{
+  const row=document.createElement("div");row.className="eqrow";
+  const sw=document.createElement("button");sw.className="swatch";sw.style.background=f.visible?f.color:"#515b6b";sw.title=f.visible?"Hide expression":"Show expression";sw.setAttribute("aria-label",sw.title);sw.addEventListener("click",()=>{f.visible=!f.visible;renderRows();draw()});
+  const input=document.createElement("input");input.value=f.source;input.spellcheck=false;input.setAttribute("aria-label","Expression "+f.id);input.addEventListener("input",()=>{f.source=input.value;try{f.fn=makeEvaluator(f.source);f.error="";status.textContent="Plotting "+f.source;input.style.borderColor="";}catch(e){f.fn=null;f.error=e.message;input.style.borderColor="var(--red)";status.textContent="Expression "+f.id+": "+e.message}draw()});
+  const del=document.createElement("button");del.textContent="×";del.className="danger";del.setAttribute("aria-label","Remove expression");del.addEventListener("click",()=>{funcs=funcs.filter(q=>q!==f);renderRows();draw()});
+  row.append(sw,input,del);eqs.append(row);
+ });
+}
+function addExpr(source=""){
+ if(funcs.length>=12){status.textContent="Limit reached: 12 expressions.";return}
+ const f={id:nextId++,source,color:colors[(nextId-2)%colors.length],visible:true,fn:null,error:""};
+ if(source){try{f.fn=makeEvaluator(source)}catch(e){f.error=e.message}}
+ funcs.push(f);renderRows();draw();
+ const input=eqs.lastElementChild?.querySelector("input");if(input){input.focus();input.setSelectionRange(input.value.length,input.value.length)}
+}
+function applyBounds(){
+ const b={xmin:+document.getElementById("xmin").value,xmax:+document.getElementById("xmax").value,ymin:+document.getElementById("ymin").value,ymax:+document.getElementById("ymax").value};
+ if(!Object.values(b).every(Number.isFinite)||b.xmin>=b.xmax||b.ymin>=b.ymax||b.xmax-b.xmin>1e12||b.ymax-b.ymin>1e12){status.textContent="Bounds must be finite, ordered, and reasonably sized.";return}
+ bounds=b;draw();status.textContent="View updated.";
+}
+function syncBounds(){for(const k of Object.keys(bounds))document.getElementById(k).value=bounds[k]}
+function zoom(factor,cx=W()/2,cy=H()/2){
+ const x=wx(cx),y=wy(cy);
+ bounds={xmin:x+(bounds.xmin-x)*factor,xmax:x+(bounds.xmax-x)*factor,ymin:y+(bounds.ymin-y)*factor,ymax:y+(bounds.ymax-y)*factor};
+ syncBounds();draw();
+}
+document.getElementById("add").addEventListener("click",()=>addExpr(""));
+document.getElementById("clear").addEventListener("click",()=>{funcs=[];renderRows();draw();status.textContent="All expressions cleared."});
+document.querySelectorAll("[data-example]").forEach(b=>b.addEventListener("click",()=>addExpr(b.dataset.example)));
+document.getElementById("apply").addEventListener("click",applyBounds);
+document.getElementById("zoomin").addEventListener("click",()=>zoom(.75));
+document.getElementById("zoomout").addEventListener("click",()=>zoom(1.33));
+document.getElementById("reset").addEventListener("click",()=>{bounds={xmin:-10,xmax:10,ymin:-10,ymax:10};syncBounds();draw()});
+document.getElementById("fit").addEventListener("click",()=>{if(!funcs.some(f=>f.fn)){status.textContent="Add a valid expression first.";return}bounds={xmin:-10,xmax:10,ymin:-10,ymax:10};syncBounds();draw()});
+document.getElementById("gridtoggle").addEventListener("click",e=>{grid=!grid;e.currentTarget.textContent=grid?"Hide grid":"Show grid";draw()});
+document.getElementById("tracetoggle").addEventListener("click",e=>{trace=!trace;e.currentTarget.textContent="Trace: "+(trace?"on":"off");if(trace&&traceX===null)traceX=0;draw()});
+canvas.addEventListener("pointerdown",e=>{canvas.setPointerCapture(e.pointerId);pointer={x:e.clientX,y:e.clientY,bounds:{...bounds},moved:false};});
+canvas.addEventListener("pointermove",e=>{
+ const r=canvas.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+ if(pointer){
+  const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;
+  if(Math.abs(dx)+Math.abs(dy)>2)pointer.moved=true;
+  if(pointer.moved){
+   const ox=(dx/r.width)*(pointer.bounds.xmax-pointer.bounds.xmin),oy=(dy/r.height)*(pointer.bounds.ymax-pointer.bounds.ymin);
+   bounds={xmin:pointer.bounds.xmin-ox,xmax:pointer.bounds.xmax-ox,ymin:pointer.bounds.ymin+oy,ymax:pointer.bounds.ymax+oy};syncBounds();draw();
+  }
+ }
+ if(trace){traceX=wx(px);draw();const vals=funcs.filter(f=>f.fn&&f.visible).map(f=>{let y;try{y=f.fn(traceX)}catch{return null}return Number.isFinite(y)?f.source+": "+fmt(y):f.source+": undefined"});coord.textContent="x = "+fmt(traceX)+" · "+(vals.join(" | ")||"no valid functions");}
+ else coord.textContent="x = "+fmt(wx(px))+" · y = "+fmt(wy(py));
+});
+canvas.addEventListener("pointerup",e=>{if(pointer&&!pointer.moved&&trace){const r=canvas.getBoundingClientRect();traceX=wx(e.clientX-r.left);draw()}pointer=null});
+canvas.addEventListener("pointercancel",()=>pointer=null);
+canvas.addEventListener("wheel",e=>{e.preventDefault();const r=canvas.getBoundingClientRect();zoom(e.deltaY<0?.88:1.14,e.clientX-r.left,e.clientY-r.top)},{passive:false});
+window.addEventListener("resize",resize);
+addExpr(defaultFns[0]);addExpr(defaultFns[1]);resize();syncBounds();
+})();
+</script>
+</body>
+</html>

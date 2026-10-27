@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LuciCalc Advanced</title>
+<style>
+:root{color-scheme:dark;--bg:#10131a;--panel:#191e29;--panel2:#222a38;--line:#394354;--text:#edf2fa;--muted:#aab5c6;--accent:#80b7ff;--good:#9de6bc;--bad:#ff9eaa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:18px}
+h1{font-size:1.55rem;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 16px}
+.layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(270px,.85fr);gap:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+label{display:block;color:var(--muted);font-size:.88rem;margin:0 0 6px}
+textarea,input,button{font:inherit}
+textarea,input{width:100%;background:#0c1017;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;outline:none}
+textarea:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #80b7ff22}
+#expr{min-height:64px;resize:vertical;font:1.12rem/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px 11px;cursor:pointer;min-height:40px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#081421;border-color:var(--accent);font-weight:700}
+button.danger{color:var(--bad)}
+.result{margin-top:12px;padding:12px;background:#0c1017;border:1px solid var(--line);border-radius:10px;overflow-wrap:anywhere}
+#answer{font:1.55rem/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+#status{color:var(--muted);font-size:.9rem;margin-top:5px}
+.keygrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:12px}
+.keygrid button{padding:8px 2px;font: .98rem ui-monospace,monospace}
+.sectiontitle{font-size:1rem;margin:0 0 10px}
+.vars{display:grid;grid-template-columns:1fr 1fr auto;gap:7px;align-items:center;margin-top:8px}
+.vars input{min-width:0}
+.vars button{padding:8px}
+#varlist{display:grid;gap:7px;margin-top:10px}
+.varitem{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;background:#0c1017;border:1px solid var(--line);border-radius:8px;overflow-wrap:anywhere}
+.varitem code{color:var(--good)}
+.help{color:var(--muted);font-size:.9rem}
+details{margin-top:12px;color:var(--muted)}
+summary{cursor:pointer;color:var(--text)}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+#history{display:grid;gap:7px;margin-top:10px}
+.hist{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#0c1017;cursor:pointer;overflow-wrap:anywhere}
+.hist small{display:block;color:var(--muted)}
+@media(max-width:760px){.layout{grid-template-columns:1fr}main{padding:12px}.keygrid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<main>
+  <h1>LuciCalc Advanced</h1>
+  <p class="sub">A keyboard-first scientific calculator with variables, functions, and reusable expressions.</p>
+  <div class="layout">
+    <section class="panel">
+      <label for="expr">Expression or assignment</label>
+      <textarea id="expr" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Try: a = 12, then a * sin(30)"></textarea>
+      <div class="row">
+        <button class="primary" id="evaluate">Evaluate ↵</button>
+        <button id="clear">Clear</button>
+        <button id="backspace">⌫ Backspace</button>
+        <button id="ansbtn">Insert ans</button>
+      </div>
+      <div class="result">
+        <div class="help">Result</div>
+        <div id="answer">—</div>
+        <div id="status" aria-live="polite">Angles: degrees</div>
+      </div>
+      <div class="keygrid" id="keys">
+        <button data-insert="7">7</button><button data-insert="8">8</button><button data-insert="9">9</button><button data-insert="/">÷</button><button data-insert="(">(</button>
+        <button data-insert="4">4</button><button data-insert="5">5</button><button data-insert="6">6</button><button data-insert="*">×</button><button data-insert=")">)</button>
+        <button data-insert="1">1</button><button data-insert="2">2</button><button data-insert="3">3</button><button data-insert="-">−</button><button data-insert="^">xʸ</button>
+        <button data-insert="0">0</button><button data-insert=".">.</button><button data-insert=",">,</button><button data-insert="+">+</button><button data-insert="%">mod</button>
+        <button data-insert="sin(">sin</button><button data-insert="cos(">cos</button><button data-insert="tan(">tan</button><button data-insert="sqrt(">√</button><button data-insert="abs(">abs</button>
+        <button data-insert="asin(">asin</button><button data-insert="acos(">acos</button><button data-insert="atan(">atan</button><button data-insert="log(">log</button><button data-insert="ln(">ln</button>
+        <button data-insert="pi">π</button><button data-insert="e">e</button><button data-insert="!">!</button><button data-insert="ans">ans</button><button id="angle">DEG</button>
+      </div>
+      <details>
+        <summary>Syntax quick reference</summary>
+        <p><code>+ - * / ^ %</code> (modulo), parentheses, and implicit multiplication such as <code>2pi</code> or <code>3(x+1)</code>.</p>
+        <p>Functions: <code>sin cos tan asin acos atan sqrt abs ln log exp floor ceil round min max factorial</code>. Constants: <code>pi</code>, <code>e</code>, <code>ans</code>. Use commas for multi-argument functions: <code>min(2, 5, 1)</code>.</p>
+        <p>Assignments: <code>radius = 4</code>, <code>area = pi * radius^2</code>. Variable names start with a letter and may include digits or underscores. Press Enter to evaluate; Shift+Enter inserts a new line.</p>
+      </details>
+    </section>
+    <aside class="panel">
+      <h2 class="sectiontitle">Variables</h2>
+      <p class="help">Create or update a variable by evaluating an assignment, e.g. <code>radius = 4</code>.</p>
+      <div id="varlist"><div class="help">No variables yet.</div></div>
+      <div class="row">
+        <button id="clearvars" class="danger">Clear variables</button>
+      </div>
+      <h2 class="sectiontitle" style="margin-top:22px">Recent calculations</h2>
+      <div id="history"><div class="help">Nothing evaluated yet.</div></div>
+      <div class="row"><button id="clearhistory">Clear history</button></div>
+    </aside>
+  </div>
+</main>
+<script>
+(() => {
+  "use strict";
+  const expr = document.getElementById("expr");
+  const answer = document.getElementById("answer");
+  const status = document.getElementById("status");
+  const varsEl = document.getElementById("varlist");
+  const historyEl = document.getElementById("history");
+  const vars = Object.create(null);
+  let ans = 0, degrees = true, history = [];
+
+  const functions = {
+    sin: x => Math.sin(angleIn(x)),
+    cos: x => Math.cos(angleIn(x)),
+    tan: x => Math.tan(angleIn(x)),
+    asin: x => angleOut(Math.asin(x)),
+    acos: x => angleOut(Math.acos(x)),
+    atan: x => angleOut(Math.atan(x)),
+    sqrt: x => Math.sqrt(x),
+    abs: x => Math.abs(x),
+    ln: x => Math.log(x),
+    log: x => Math.log10(x),
+    exp: x => Math.exp(x),
+    floor: x => Math.floor(x),
+    ceil: x => Math.ceil(x),
+    round: x => Math.round(x),
+    min: (...x) => Math.min(...x),
+    max: (...x) => Math.max(...x),
+    factorial: x => factorial(x)
+  };
+  function angleIn(x){ return degrees ? x * Math.PI / 180 : x; }
+  function angleOut(x){ return degrees ? x * 180 / Math.PI : x; }
+  function factorial(x){
+    if (!Number.isInteger(x) || x < 0 || x > 170) throw Error("factorial requires an integer from 0 to 170");
+    let r=1; for(let i=2;i<=x;i++) r*=i; return r;
+  }
+  function tokenize(s){
+    const tokens=[]; let i=0;
+    while(i<s.length){
+      if(/\s/.test(s[i])){i++;continue;}
+      const rest=s.slice(i);
+      const num=rest.match(/^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i);
+      if(num){tokens.push({t:"num",v:Number(num[0])});i+=num[0].length;continue;}
+      const id=rest.match(/^[A-Za-z_][A-Za-z_0-9]*/);
+      if(id){tokens.push({t:"id",v:id[0].toLowerCase()});i+=id[0].length;continue;}
+      if("+-*/^%(),!".includes(s[i])){tokens.push({t:s[i],v:s[i]});i++;continue;}
+      throw Error("Unexpected character: "+s[i]);
+    }
+    // Insert implicit multiplication between value-ending and value-starting tokens,
+    // but not between a known function name and its opening parenthesis.
+    const out=[];
+    for(let j=0;j<tokens.length;j++){
+      const a=tokens[j], b=tokens[j+1];
+      out.push(a);
+      if(!b) continue;
+      const ends = a.t==="num" || a.t==="id" || a.t===")" || a.t==="!";
+      const starts = b.t==="num" || b.t==="id" || b.t==="(";
+      const functionCall = a.t==="id" && b.t==="(" && Object.hasOwn(functions,a.v);
+      if(ends && starts && !functionCall) out.push({t:"*",v:"*"});
+    }
+    return out;
+  }
+  function evaluate(source){
+    const assignment = source.match(/^\s*([A-Za-z_][A-Za-z_0-9]*)\s*=(?!=)\s*(.+)$/);
+    if(assignment){
+      const name=assignment[1].toLowerCase();
+      if(["pi","e","ans"].includes(name) || Object.hasOwn(functions,name)) throw Error("That name is reserved.");
+      const value=calculate(assignment[2]);
+      if(!Number.isFinite(value)) throw Error("Result is not a finite real number.");
+      vars[name]=value; renderVars();
+      return {value, message:name+" = "+format(value), assignment:name};
+    }
+    const value=calculate(source);
+    if(!Number.isFinite(value)) throw Error("Result is not a finite real number.");
+    return {value, message:format(value)};
+  }
+  function calculate(source){
+    const ts=tokenize(source); let p=0;
+    if(!ts.length) throw Error("Enter an expression first.");
+    const peek=()=>ts[p];
+    const take=t=>{if(peek()&&peek().t===t)return ts[p++];return null;};
+    const need=t=>{const x=take(t);if(!x)throw Error("Expected '"+t+"'");return x;};
+    function primary(){
+      let x;
+      if(take("+")) return unary();
+      if(take("-")) return -unary();
+      if((x=take("num"))) return x.v;
+      if((x=take("id"))){
+        if(x.v==="pi") return Math.PI;
+        if(x.v==="e") return Math.E;
+        if(x.v==="ans") return ans;
+        if(Object.hasOwn(functions,x.v)){
+          need("("); const args=[];
+          if(!take(")")){
+            args.push(expression(0));
+            while(take(",")) args.push(expression(0));
+            need(")");
+          }
+          const fn=functions[x.v];
+          if((x.v==="min"||x.v==="max") ? args.length<1 : args.length!==1) throw Error(x.v+" has the wrong number of arguments.");
+          return fn(...args);
+        }
+        if(Object.hasOwn(vars,x.v)) return vars[x.v];
+        throw Error("Unknown variable: "+x.v);
+      }
+      if(take("(")){const v=expression(0);need(")");return v;}
+      throw Error("Expected a number, variable, function, or '('");
+    }
+    function postfix(){
+      let v=primary();
+      while(take("!")) v=factorial(v);
+      return v;
+    }
+    function unary(){ return postfix(); }
+    function power(){
+      let left=postfix();
+      if(take("^")){const right=unary();left=Math.pow(left,right);}
+      return left;
+    }
+    function term(){
+      let v=power();
+      while(peek()&&["*","/","%"].includes(peek().t)){
+        const op=ts[p++].t, r=power();
+        if((op==="/"||op==="%")&&r===0) throw Error("Cannot divide or take modulo by zero.");
+        v=op==="*" ? v*r : op==="/" ? v/r : v%r;
+      }
+      return v;
+    }
+    function expression(){
+      let v=term();
+      while(peek()&&(peek().t==="+"||peek().t==="-")){
+        const op=ts[p++].t,r=term(); v=op==="+"?v+r:v-r;
+      }
+      return v;
+    }
+    const result=expression();
+    if(p<ts.length) throw Error("Unexpected token: "+ts[p].v);
+    return result;
+  }
+  function format(n){
+    if(Object.is(n,-0)) n=0;
+    if(Number.isInteger(n) && Math.abs(n)<1e15) return String(n);
+    return Number(n.toPrecision(12)).toString();
+  }
+  function renderVars(){
+    const names=Object.keys(vars).sort();
+    varsEl.replaceChildren();
+    if(!names.length){varsEl.innerHTML='<div class="help">No variables yet.</div>';return;}
+    for(const name of names){
+      const row=document.createElement("div"); row.className="varitem";
+      const code=document.createElement("code"); code.textContent=name+" = "+format(vars[name]);
+      const ins=document.createElement("button"); ins.textContent="Insert"; ins.type="button";
+      ins.addEventListener("click",()=>insertText(name));
+      const del=document.createElement("button"); del.textContent="×"; del.className="danger"; del.type="button"; del.setAttribute("aria-label","Delete "+name);
+      del.addEventListener("click",()=>{delete vars[name];renderVars();});
+      row.append(code,ins,del); varsEl.append(row);
+    }
+  }
+  function renderHistory(){
+    historyEl.replaceChildren();
+    if(!history.length){historyEl.innerHTML='<div class="help">Nothing evaluated yet.</div>';return;}
+    history.slice().reverse().forEach(item=>{
+      const el=document.createElement("div");el.className="hist";el.tabIndex=0;el.setAttribute("role","button");
+      const exp=document.createElement("div");exp.textContent=item.source;
+      const val=document.createElement("small");val.textContent="= "+format(item.value);
+      el.append(exp,val);
+      const use=()=>{expr.value=item.source;expr.focus();};
+      el.addEventListener("click",use);el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();use();}});
+      historyEl.append(el);
+    });
+  }
+  function insertText(text){
+    const start=expr.selectionStart ?? expr.value.length, end=expr.selectionEnd ?? start;
+    expr.setRangeText(text,start,end,"end");expr.focus();
+  }
+  function run(){
+    try{
+      const source=expr.value.trim();
+      const result=evaluate(source);
+      ans=result.value; answer.textContent=result.message;
+      status.textContent=(degrees?"Degrees":"Radians")+" · ans = "+format(ans);
+      history.push({source,value:result.value});if(history.length>12)history.shift();renderHistory();
+    }catch(e){answer.textContent="Error";status.textContent=e.message||"Invalid expression";}
+  }
+  document.getElementById("evaluate").addEventListener("click",run);
+  document.getElementById("clear").addEventListener("click",()=>{expr.value="";answer.textContent="—";status.textContent=degrees?"Angles: degrees":"Angles: radians";expr.focus();});
+  document.getElementById("backspace").addEventListener("click",()=>{
+    const s=expr.selectionStart??expr.value.length,e=expr.selectionEnd??s;
+    if(s===e&&s>0)expr.setRangeText("",s-1,s,"end");else expr.setRangeText("",s,e,"end");
+    expr.focus();
+  });
+  document.getElementById("ansbtn").addEventListener("click",()=>insertText("ans"));
+  document.getElementById("angle").addEventListener("click",e=>{degrees=!degrees;e.currentTarget.textContent=degrees?"DEG":"RAD";status.textContent="Angles: "+(degrees?"degrees":"radians");});
+  document.getElementById("clearvars").addEventListener("click",()=>{for(const k of Object.keys(vars))delete vars[k];renderVars();});
+  document.getElementById("clearhistory").addEventListener("click",()=>{history=[];renderHistory();});
+  document.getElementById("keys").addEventListener("click",e=>{
+    const b=e.target.closest("button[data-insert]");if(b)insertText(b.dataset.insert);
+  });
+  expr.addEventListener("keydown",e=>{
+    if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();run();}
+  });
+  renderVars();renderHistory();expr.focus();
+})();
+</script>
+</body>
+</html>

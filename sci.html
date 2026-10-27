@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LuciCalc — Scientific Calculator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10131a;
+      --panel: #1a202b;
+      --panel-2: #252d3a;
+      --text: #f4f7fb;
+      --muted: #a9b4c5;
+      --accent: #7c9cff;
+      --accent-hover: #9ab2ff;
+      --border: #344052;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      padding: 24px 14px;
+      background: radial-gradient(circle at top left, #273452 0, transparent 38rem), var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .calculator {
+      width: min(100%, 470px); padding: 20px; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 24px; box-shadow: 0 20px 60px #0005;
+    }
+    .brand { margin: 0 0 5px; font-size: 1.15rem; font-weight: 750; letter-spacing: .02em; }
+    .subtitle { margin: 0 0 18px; color: var(--muted); font-size: .88rem; }
+    .settings { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .mode {
+      border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px;
+      background: var(--panel-2); color: var(--text); cursor: pointer; font: inherit;
+    }
+    .mode[aria-pressed="true"] { background: var(--accent); color: #10131a; border-color: transparent; font-weight: 700; }
+    .display {
+      min-height: 112px; padding: 16px; margin-bottom: 14px; display: flex; flex-direction: column;
+      justify-content: flex-end; gap: 8px; overflow: hidden; background: #0d1118;
+      border: 1px solid var(--border); border-radius: 16px;
+    }
+    #expression { min-height: 24px; color: var(--muted); font-size: 1rem; text-align: right; overflow-wrap: anywhere; }
+    #result { min-height: 38px; font-size: clamp(1.8rem, 8vw, 2.3rem); font-weight: 650; text-align: right; overflow-wrap: anywhere; }
+    .keys { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+    button.key {
+      min-width: 0; min-height: 54px; padding: 6px; border: 1px solid transparent; border-radius: 13px;
+      background: var(--panel-2); color: var(--text); font: inherit; font-size: 1rem;
+      cursor: pointer; transition: background 120ms ease, transform 120ms ease; touch-action: manipulation;
+    }
+    button.key:hover { background: #354158; }
+    button.key:active { transform: scale(.97); }
+    button.key:focus-visible, .mode:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+    button.utility { color: var(--accent-hover); }
+    button.operator { background: #2b3854; color: #c9d5ff; }
+    button.operator:hover { background: #394b70; }
+    button.equals { background: var(--accent); color: #10131a; font-weight: 800; }
+    button.equals:hover { background: var(--accent-hover); }
+    button.span-2 { grid-column: span 2; }
+    .hint { margin: 14px 2px 0; color: var(--muted); font-size: .78rem; line-height: 1.45; }
+    @media (max-width: 380px) {
+      .calculator { padding: 13px; }
+      .keys { gap: 6px; }
+      button.key { min-height: 48px; font-size: .92rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="calculator" aria-label="Scientific calculator">
+    <h1 class="brand">LuciCalc</h1>
+    <p class="subtitle">Scientific calculator</p>
+
+    <div class="settings" aria-label="Angle mode">
+      <button id="degrees" class="mode" type="button" aria-pressed="true">DEG</button>
+      <button id="radians" class="mode" type="button" aria-pressed="false">RAD</button>
+    </div>
+
+    <section class="display" aria-label="Calculator display" aria-live="polite">
+      <div id="expression">Ready</div>
+      <div id="result">0</div>
+    </section>
+
+    <section class="keys" aria-label="Scientific calculator keys">
+      <button class="key utility" data-action="clear">AC</button>
+      <button class="key utility" data-action="backspace" aria-label="Backspace">⌫</button>
+      <button class="key utility" data-action="sign">+/−</button>
+      <button class="key utility" data-value="(">(</button>
+      <button class="key utility" data-value=")">)</button>
+
+      <button class="key" data-func="sin">sin</button>
+      <button class="key" data-func="cos">cos</button>
+      <button class="key" data-func="tan">tan</button>
+      <button class="key" data-func="asin">sin⁻¹</button>
+      <button class="key" data-func="acos">cos⁻¹</button>
+
+      <button class="key" data-func="atan">tan⁻¹</button>
+      <button class="key" data-func="sqrt">√</button>
+      <button class="key" data-func="square">x²</button>
+      <button class="key" data-value="^">xʸ</button>
+      <button class="key" data-func="factorial">x!</button>
+
+      <button class="key" data-func="log">log</button>
+      <button class="key" data-func="ln">ln</button>
+      <button class="key" data-func="abs">abs</button>
+      <button class="key" data-value="π">π</button>
+      <button class="key" data-value="e">e</button>
+
+      <button class="key" data-value="7">7</button>
+      <button class="key" data-value="8">8</button>
+      <button class="key" data-value="9">9</button>
+      <button class="key operator" data-value="÷">÷</button>
+      <button class="key operator" data-value="mod">mod</button>
+
+      <button class="key" data-value="4">4</button>
+      <button class="key" data-value="5">5</button>
+      <button class="key" data-value="6">6</button>
+      <button class="key operator" data-value="×">×</button>
+      <button class="key operator" data-value="−">−</button>
+
+      <button class="key" data-value="1">1</button>
+      <button class="key" data-value="2">2</button>
+      <button class="key" data-value="3">3</button>
+      <button class="key operator" data-value="+">+</button>
+      <button class="key utility" data-action="percent">%</button>
+
+      <button class="key" data-value="0">0</button>
+      <button class="key" data-value=".">.</button>
+      <button class="key" data-func="reciprocal">1/x</button>
+      <button class="key equals span-2" data-action="equals">=</button>
+    </section>
+
+    <p class="hint">Keyboard: numbers, + − * /, ^, parentheses, Enter, Backspace, Escape. Trig uses the selected DEG/RAD mode.</p>
+  </main>
+
+  <script>
+    "use strict";
+
+    const expressionDisplay = document.getElementById("expression");
+    const resultDisplay = document.getElementById("result");
+    const keys = document.querySelector(".keys");
+    const degButton = document.getElementById("degrees");
+    const radButton = document.getElementById("radians");
+
+    let expression = "";
+    let justEvaluated = false;
+    let hasError = false;
+    let angleMode = "DEG";
+
+    const functions = new Set(["sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "square", "factorial", "log", "ln", "abs", "reciprocal"]);
+    const precedence = { "+": 1, "−": 1, "×": 2, "÷": 2, "mod": 2, "^": 3 };
+    const rightAssociative = new Set(["^"]);
+
+    function formatNumber(number) {
+      if (Object.is(number, -0)) number = 0;
+      if (!Number.isFinite(number)) throw new Error("Result out of range");
+      return Number(number.toPrecision(12)).toString();
+    }
+
+    function clearAll() {
+      expression = "";
+      justEvaluated = false;
+      hasError = false;
+      expressionDisplay.textContent = "Ready";
+      resultDisplay.textContent = "0";
+    }
+
+    function showError(message) {
+      resultDisplay.textContent = message;
+      hasError = true;
+    }
+
+    function setAngleMode(mode) {
+      angleMode = mode;
+      degButton.setAttribute("aria-pressed", String(mode === "DEG"));
+      radButton.setAttribute("aria-pressed", String(mode === "RAD"));
+    }
+    degButton.addEventListener("click", () => setAngleMode("DEG"));
+    radButton.addEventListener("click", () => setAngleMode("RAD"));
+
+    function tokenize(input) {
+      const tokens = [];
+      let i = 0;
+      while (i < input.length) {
+        const c = input[i];
+        if (/\s/.test(c)) { i++; continue; }
+
+        if (/[0-9.]/.test(c)) {
+          let text = "", dots = 0;
+          while (i < input.length && /[0-9.]/.test(input[i])) {
+            if (input[i] === ".") dots++;
+            text += input[i++];
+          }
+          if (dots > 1 || text === ".") throw new Error("Invalid number");
+          tokens.push({ type: "number", value: Number(text) });
+          continue;
+        }
+
+        if (/[a-zA-Z]/.test(c)) {
+          let word = "";
+          while (i < input.length && /[a-zA-Z]/.test(input[i])) word += input[i++];
+          if (word === "mod") tokens.push({ type: "operator", value: "mod" });
+          else if (word === "pi") tokens.push({ type: "constant", value: Math.PI });
+          else if (word === "e") tokens.push({ type: "constant", value: Math.E });
+          else if (functions.has(word)) tokens.push({ type: "function", value: word });
+          else throw new Error("Unknown function");
+          continue;
+        }
+
+        if (c === "π") { tokens.push({ type: "constant", value: Math.PI }); i++; continue; }
+        if (c === "−" || c === "-" || c === "+" || c === "×" || c === "*" || c === "÷" || c === "/" || c === "^") {
+          const normalized = c === "-" ? "−" : c === "*" ? "×" : c === "/" ? "÷" : c;
+          tokens.push({ type: "operator", value: normalized });
+          i++;
+          continue;
+        }
+        if (c === "(" || c === ")") { tokens.push({ type: c === "(" ? "leftParen" : "rightParen" }); i++; continue; }
+        if (c === "%") { tokens.push({ type: "percent" }); i++; continue; }
+        if (c === "!") { tokens.push({ type: "factorial" }); i++; continue; }
+        throw new Error("Invalid input");
+      }
+
+      // Implicit multiplication: 2π, 2(3+4), and (2)(3).
+      const expanded = [];
+      for (const token of tokens) {
+        const previous = expanded[expanded.length - 1];
+        const prevCanEnd = previous && ["number", "constant", "rightParen", "percent"].includes(previous.type);
+        const currentCanStart = ["number", "constant", "leftParen", "function"].includes(token.type);
+        if (prevCanEnd && currentCanStart) expanded.push({ type: "operator", value: "×" });
+        expanded.push(token);
+      }
+      return expanded;
+    }
+
+    function applyFunction(name, x) {
+      let value;
+      const toRadians = n => angleMode === "DEG" ? n * Math.PI / 180 : n;
+      const fromRadians = n => angleMode === "DEG" ? n * 180 / Math.PI : n;
+
+      switch (name) {
+        case "sin": value = Math.sin(toRadians(x)); break;
+        case "cos": value = Math.cos(toRadians(x)); break;
+        case "tan":
+          if (Math.abs(Math.cos(toRadians(x))) < 1e-14) throw new Error("Undefined tangent");
+          value = Math.tan(toRadians(x)); break;
+        case "asin":
+          if (x < -1 || x > 1) throw new Error("asin domain is −1 to 1");
+          value = fromRadians(Math.asin(x)); break;
+        case "acos":
+          if (x < -1 || x > 1) throw new Error("acos domain is −1 to 1");
+          value = fromRadians(Math.acos(x)); break;
+        case "atan": value = fromRadians(Math.atan(x)); break;
+        case "sqrt":
+          if (x < 0) throw new Error("Negative square root");
+          value = Math.sqrt(x); break;
+        case "square": value = x * x; break;
+        case "factorial":
+          if (x < 0 || !Number.isInteger(x) || x > 170) throw new Error("x! needs an integer from 0 to 170");
+          value = 1;
+          for (let i = 2; i <= x; i++) value *= i;
+          break;
+        case "log":
+          if (x <= 0) throw new Error("log needs a positive number");
+          value = Math.log10(x); break;
+        case "ln":
+          if (x <= 0) throw new Error("ln needs a positive number");
+          value = Math.log(x); break;
+        case "abs": value = Math.abs(x); break;
+        case "reciprocal":
+          if (x === 0) throw new Error("Cannot divide by zero");
+          value = 1 / x; break;
+        default: throw new Error("Unknown function");
+      }
+      if (!Number.isFinite(value)) throw new Error("Result out of range");
+      return value;
+    }
+
+    function toRpn(tokens) {
+      const output = [];
+      const stack = [];
+      let previous = null;
+
+      for (const original of tokens) {
+        let token = { ...original };
+
+        if (token.type === "operator" && (token.value === "−" || token.value === "+") &&
+            (!previous || ["operator", "leftParen", "function"].includes(previous.type))) {
+          if (token.value === "+") { previous = token; continue; }
+          token = { type: "function", value: "negate" };
+        }
+
+        if (token.type === "number" || token.type === "constant") output.push(token);
+        else if (token.type === "function") stack.push(token);
+        else if (token.type === "percent") {
+          output.push({ type: "function", value: "percent" });
+        } else if (token.type === "factorial") {
+          output.push({ type: "function", value: "factorial" });
+        } else if (token.type === "operator") {
+          while (stack.length) {
+            const top = stack[stack.length - 1];
+            if (top.type !== "operator") break;
+            const shouldPop = rightAssociative.has(token.value)
+              ? precedence[token.value] < precedence[top.value]
+              : precedence[token.value] <= precedence[top.value];
+            if (!shouldPop) break;
+            output.push(stack.pop());
+          }
+          stack.push(token);
+        } else if (token.type === "leftParen") stack.push(token);
+        else if (token.type === "rightParen") {
+          while (stack.length && stack[stack.length - 1].type !== "leftParen") output.push(stack.pop());
+          if (!stack.length) throw new Error("Mismatched parentheses");
+          stack.pop();
+          if (stack.length && stack[stack.length - 1].type === "function") output.push(stack.pop());
+        }
+        previous = original;
+      }
+
+      while (stack.length) {
+        const token = stack.pop();
+        if (token.type === "leftParen" || token.type === "rightParen") throw new Error("Mismatched parentheses");
+        output.push(token);
+      }
+      return output;
+    }
+
+    function evaluateRpn(rpn) {
+      const stack = [];
+      for (const token of rpn) {
+        if (token.type === "number" || token.type === "constant") stack.push(token.value);
+        else if (token.type === "function") {
+          if (token.value === "negate") {
+            if (stack.length < 1) throw new Error("Incomplete expression");
+            stack.push(-stack.pop());
+          } else if (token.value === "percent") {
+            if (stack.length < 1) throw new Error("Incomplete expression");
+            stack.push(stack.pop() / 100);
+          } else {
+            if (stack.length < 1) throw new Error("Incomplete expression");
+            stack.push(applyFunction(token.value, stack.pop()));
+          }
+        } else if (token.type === "operator") {
+          if (stack.length < 2) throw new Error("Incomplete expression");
+          const b = stack.pop(), a = stack.pop();
+          let result;
+          switch (token.value) {
+            case "+": result = a + b; break;
+            case "−": result = a - b; break;
+            case "×": result = a * b; break;
+            case "÷": if (b === 0) throw new Error("Cannot divide by zero"); result = a / b; break;
+            case "mod": if (b === 0) throw new Error("Cannot divide by zero"); result = a % b; break;
+            case "^": result = Math.pow(a, b); break;
+            default: throw new Error("Unknown operator");
+          }
+          if (!Number.isFinite(result)) throw new Error("Result out of range");
+          stack.push(result);
+        }
+      }
+      if (stack.length !== 1) throw new Error("Invalid expression");
+      return stack[0];
+    }
+
+    function calculate(input) {
+      return evaluateRpn(toRpn(tokenize(input)));
+    }
+
+    function appendValue(value) {
+      if (hasError) clearAll();
+      if (justEvaluated) {
+        if (/^[0-9.]$/.test(value) || value === "π" || value === "e" || value === "(") expression = "";
+        justEvaluated = false;
+      }
+      if (value === "." && /(?:^|[+\−×÷^,(])\s*[-−]?$/.test(expression)) expression += "0";
+      expression += value;
+      expressionDisplay.textContent = expression || "Ready";
+      resultDisplay.textContent = expression || "0";
+    }
+
+    function findLastOperandStart(text) {
+      let depth = 0;
+      for (let i = text.length - 1; i >= 0; i--) {
+        if (text[i] === ")") depth++;
+        else if (text[i] === "(") {
+          if (depth === 0) return i + 1;
+          depth--;
+        } else if (depth === 0 && ["+", "−", "×", "÷", "^"].includes(text[i])) {
+          if (text[i] === "−" && (i === 0 || ["+", "−", "×", "÷", "^", "("].includes(text[i - 1]))) continue;
+          return i + 1;
+        }
+      }
+      return 0;
+    }
+
+    function applyFunctionToCurrent(name) {
+      if (hasError) clearAll();
+      if (justEvaluated) justEvaluated = false;
+
+      if (!expression) {
+        expression = name + "(";
+      } else {
+        const start = findLastOperandStart(expression);
+        const operand = expression.slice(start);
+        if (!operand) expression += name + "(";
+        else expression = expression.slice(0, start) + name + "(" + operand + ")";
+      }
+      expressionDisplay.textContent = expression;
+      resultDisplay.textContent = expression;
+    }
+
+    function applyUnarySuffix(name) {
+      if (!expression || hasError) return;
+      if (justEvaluated) justEvaluated = false;
+      const start = findLastOperandStart(expression);
+      const operand = expression.slice(start);
+      if (!operand) return;
+      if (name === "square") expression = expression.slice(0, start) + "(" + operand + ")^2";
+      else if (name === "factorial") expression += "!";
+      else if (name === "reciprocal") expression = expression.slice(0, start) + "1/(" + operand + ")";
+      expressionDisplay.textContent = expression;
+      resultDisplay.textContent = expression;
+    }
+
+    function applySign() {
+      if (!expression || hasError) return;
+      if (justEvaluated) justEvaluated = false;
+      const start = findLastOperandStart(expression);
+      const prefix = expression.slice(0, start);
+      const operand = expression.slice(start);
+      if (!operand) return;
+      expression = prefix + (operand.startsWith("−") ? operand.slice(1) : "−(" + operand + ")");
+      expressionDisplay.textContent = expression;
+      resultDisplay.textContent = expression;
+    }
+
+    function applyPercent() {
+      if (!expression || hasError) return;
+      appendValue("%");
+    }
+
+    function equals() {
+      if (!expression || justEvaluated) return;
+      try {
+        const result = formatNumber(calculate(expression));
+        expressionDisplay.textContent = expression + " =";
+        resultDisplay.textContent = result;
+        expression = result;
+        justEvaluated = true;
+        hasError = false;
+      } catch (error) {
+        showError(error.message || "Error");
+      }
+    }
+
+    function backspace() {
+      if (hasError) { clearAll(); return; }
+      if (justEvaluated) justEvaluated = false;
+      expression = expression.slice(0, -1);
+      expressionDisplay.textContent = expression || "Ready";
+      resultDisplay.textContent = expression || "0";
+    }
+
+    keys.addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.dataset.value !== undefined) appendValue(button.dataset.value);
+      else if (button.dataset.func) {
+        const name = button.dataset.func;
+        if (["square", "factorial", "reciprocal"].includes(name)) applyUnarySuffix(name);
+        else applyFunctionToCurrent(name);
+      } else {
+        switch (button.dataset.action) {
+          case "clear": clearAll(); break;
+          case "backspace": backspace(); break;
+          case "sign": applySign(); break;
+          case "percent": applyPercent(); break;
+          case "equals": equals(); break;
+        }
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (/^[0-9.]$/.test(event.key)) { appendValue(event.key); event.preventDefault(); return; }
+      const ops = { "+": "+", "-": "−", "*": "×", "/": "÷", "^": "^", "(": "(", ")": ")", "%": "%" };
+      if (ops[event.key]) { appendValue(ops[event.key]); event.preventDefault(); }
+      else if (event.key === "Enter" || event.key === "=") { equals(); event.preventDefault(); }
+      else if (event.key === "Backspace") { backspace(); event.preventDefault(); }
+      else if (event.key === "Escape" || event.key === "Delete") { clearAll(); event.preventDefault(); }
+    });
+  </script>
+</body>
+</html>
